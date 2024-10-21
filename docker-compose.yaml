@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  test-keycloak:
+    image: quay.io/keycloak/keycloak:22.0.5
+    restart: unless-stopped
+    container_name: test-keycloak
+    environment:
+      - KEYCLOAK_ADMIN
+      - KEYCLOAK_ADMIN_PASSWORD
+# Set this to your desired hostname
+      - KC_HOSTNAME
+# Necessary for production mode when running behind a reverse proxy
+      - KC_PROXY=edge
+      - KC_DB=postgres
+# PostgreSQL container reference
+      - KC_DB_URL=jdbc:postgresql://keycloak-postgres:5432/${POSTGRES_DB}
+      - KC_DB_USERNAME=${POSTGRES_USER}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - test-keycloak-data:/opt/keycloak/data
+    ports:
+      - "${KEYCLOAK_PORT}:8080"
+    expose:
+      - 8080
+    depends_on:
+      - keycloak-postgres
+    entrypoint: /bin/sh -c "/opt/keycloak/bin/kc.sh build && /opt/keycloak/bin/kc.sh start --optimized"
+
+  keycloak-pgadmin:
+    image: dpage/pgadmin4:8.12
+    restart: unless-stopped
+    container_name: keycloak-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL
+      - PGADMIN_DEFAULT_PASSWORD
+    volumes:
+      - keycloak-pgadmin-data:/var/lib/pgadmin:rw
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "${PGADMIN_PORT}:80"
+    expose:
+      - 80
+
+  keycloak-postgres:
+    image: postgres:16.1
+    container_name: keycloak-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+    volumes:
+      - keycloak-postgres-data:/var/lib/postgresql/data:rw
+      - /etc/localtime:/etc/localtime:ro
+#    ports:
+#      - "${POSTGRES_PORT}:5432"
+    expose:
+      - 5432
+
+volumes:
+  test-keycloak-data:
+    name: test-keycloak-data
+  keycloak-pgadmin-data:
+    name: keycloak-pgadmin-data
+  keycloak-postgres-data:
+    name: keycloak-postgres-data
